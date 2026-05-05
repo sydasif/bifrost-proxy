@@ -2,8 +2,42 @@ services:
   bifrost-proxy:
     image: maximhq/bifrost:latest
     container_name: bifrost
+    user: "1000:1000"  # Run as non-root user for security
     ports:
       - "8080:8080"
     volumes:
       - ./app/data:/app/data
+    environment:
+      # Application configuration
+      - APP_PORT=8080
+      - APP_HOST=0.0.0.0
+      # Logging configuration
+      - LOG_LEVEL=info
+      - LOG_STYLE=json
+      # Performance tuning
+      - MAX_WORKERS=4
+      - REQUEST_TIMEOUT=300
+      # Security
+      - ENABLE_CORS=true
+      - CORS_ORIGINS=*
+      # Data retention (30 days instead of 365 for better defaults)
+      - LOG_RETENTION_DAYS=30
+    # Resource limits for stability
+    cpus: "2.0"
+    mem_limit: "2g"
+    mem_reservation: "1g"
+    # Health monitoring - check if port is listening since health endpoint may not exist
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Restart policy with better semantics
     restart: unless-stopped
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100m,mode=1777
