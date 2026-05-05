@@ -1,0 +1,9 @@
+services:
+  bifrost-proxy:
+    image: maximhq/bifrost:latest
+    container_name: bifrost
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./app/data:/app/data
+    restart: unless-stopped
