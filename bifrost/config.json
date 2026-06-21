@@ -3,7 +3,8 @@
   "client": {
     "enable_logging": true,
     "compat": {
-      "should_drop_params": true
+      "should_drop_params": true,
+      "should_convert_params": true
     }
   },
   "providers": {
@@ -12,7 +13,7 @@
         {
           "name": "opencode-key",
           "value": "env.OPENCODE_API_KEY",
-          "models": ["nemotron-3-ultra-free"],
+          "models": ["nemotron-3-ultra-free", "deepseek-v4-flash-free"],
           "weight": 1.0
         }
       ],
@@ -25,9 +26,7 @@
         "base_provider_type": "openai",
         "allowed_requests": {
           "chat_completion": true,
-          "chat_completion_stream": true,
-          "responses": true,
-          "responses_stream": true
+          "chat_completion_stream": true
         }
       }
     },

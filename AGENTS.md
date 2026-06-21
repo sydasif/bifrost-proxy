@@ -40,7 +40,7 @@ Two compose files, mutually exclusive (only one active at a time):
 
 | Provider | Timeout | Models                  | Keys                             |
 | :------- | :------ | :---------------------- | :------------------------------- |
-| opencode | 300s    | `nemotron-3-ultra-free` | 1 key, weight 1.0                |
+| opencode | 300s    | `nemotron-3-ultra-free`, `deepseek-v4-flash-free` | 1 key, weight 1.0                |
 | gemini   | 120s    | `gemma-4-31b-it`        | 2 keys, load-balanced (0.5 each) |
 | agnes    | 180s    | `agnes-2.0-flash`       | 1 key, weight 1.0                |
 
@@ -84,7 +84,7 @@ Each switch requires **both** a compose file swap and a `.profile` update.
 | `ANTHROPIC_BASE_URL`             | `http://localhost:4000/anthropic` | `http://localhost:4000` |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL`   | `opencode/nemotron-3-ultra-free`  | `nemotron-3-ultra`      |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `gemini/gemma-4-31b-it`           | `gemma-4-31b`           |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL`  | `agnes/agnes-2.0-flash`           | `deepseek-v4-flash`     |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL`  | `opencode/deepseek-v4-flash-free`  | `deepseek-v4-flash`     |
 
 ### Bifrost → LiteLLM
 
