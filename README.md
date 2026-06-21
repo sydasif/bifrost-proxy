@@ -13,7 +13,7 @@ A proxy gateway that routes Claude Code through **Bifrost** (Go, ~11µs overhead
 ## Features
 
 - **Single proxy**: Bifrost (Go, fast, Redis semantic caching)
-- **Multi-provider routing**: OpenCode, Gemini, Agnes through a single endpoint
+- **Multi-provider routing**: OpenCode, Agnes through a single endpoint
 - **Load balancing**: Multiple API keys per provider (e.g. 2 Gemini keys)
 - **Docker Native**: Official images, compose file ready
 - **Secure**: Environment-based API key management
@@ -53,7 +53,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 ```
 
-Required keys: `OPENCODE_API_KEY`, `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, `AGNES_API_KEY`.
+Required keys: `OPENCODE_API_KEY`, `AGNES_API_KEY`.
 
 ### 2. Deploy
 
@@ -75,11 +75,10 @@ curl http://localhost:4000/v1/models
 
 ### Bifrost — `bifrost/config.json`
 
-| Provider | Timeout | Models                                            | Keys                             |
-| :------- | :------ | :------------------------------------------------ | :------------------------------- |
-| opencode | 300s    | `nemotron-3-ultra-free`, `deepseek-v4-flash-free` | 1 key, weight 1.0                |
-| gemini   | 120s    | `gemma-4-31b-it`                                  | 2 keys, load-balanced (0.5 each) |
-| agnes    | 180s    | `agnes-2.0-flash`                                 | 1 key, weight 1.0                |
+| Provider | Timeout | Models                                            | Keys              |
+| :------- | :------ | :------------------------------------------------ | :---------------- |
+| opencode | 180s    | `nemotron-3-ultra-free`, `deepseek-v4-flash-free` | 1 key, weight 1.0 |
+| agnes    | 180s    | `agnes-2.0-flash`                                 | 1 key, weight 1.0 |
 
 **Request format:** `<provider>/<model>` (e.g. `opencode/nemotron-3-ultra-free`).
 
@@ -94,7 +93,7 @@ The proxy URL and model names for Bifrost. Set these in `~/.profile` (or equival
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:4000/anthropic
 export ANTHROPIC_DEFAULT_OPUS_MODEL=opencode/nemotron-3-ultra-free
-export ANTHROPIC_DEFAULT_SONNET_MODEL=gemini/gemma-4-31b-it
+export ANTHROPIC_DEFAULT_SONNET_MODEL=agnes/agnes-2.0-flash
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=opencode/deepseek-v4-flash-free
 ```
 
