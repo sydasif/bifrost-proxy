@@ -48,9 +48,7 @@
         "base_provider_type": "openai",
         "allowed_requests": {
           "chat_completion": true,
-          "chat_completion_stream": true,
-          "responses": false,
-          "responses_stream": false
+          "chat_completion_stream": true
         }
       }
     }
