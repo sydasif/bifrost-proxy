@@ -3,7 +3,6 @@
 [![Bifrost](https://img.shields.io/badge/Powered%20by-Bifrost-FF6B35?style=for-the-badge)](https://github.com/maximhq/bifrost)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/product/claude-code)
 [![OpenCode Zen](https://img.shields.io/badge/Backend-OpenCode%20Zen-6C47FF?style=for-the-badge)](https://opencode.ai)
-[![Google Gemini](https://img.shields.io/badge/Backend-Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
 A proxy gateway that routes Claude Code through **Bifrost** (Go, ~11µs overhead, Redis caching) to multiple backend providers.
@@ -14,7 +13,7 @@ A proxy gateway that routes Claude Code through **Bifrost** (Go, ~11µs overhead
 
 - **Single proxy**: Bifrost (Go, fast, Redis semantic caching)
 - **Multi-provider routing**: OpenCode, Agnes through a single endpoint
-- **Load balancing**: Multiple API keys per provider (e.g. 2 Gemini keys)
+- **Load balancing**: Multiple API keys per provider
 - **Docker Native**: Official images, compose file ready
 - **Secure**: Environment-based API key management
 
