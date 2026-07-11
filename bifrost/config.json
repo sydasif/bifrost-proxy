@@ -13,13 +13,47 @@
         {
           "name": "opencode-key",
           "value": "env.OPENCODE_API_KEY",
-          "models": ["nemotron-3-ultra-free", "deepseek-v4-flash-free"],
+          "models": ["mimo-v2.5-free"],
           "weight": 1.0
         }
       ],
       "network_config": {
         "base_url": "https://opencode.ai/zen",
-        "default_request_timeout_in_seconds": 180,
+        "default_request_timeout_in_seconds": 120,
+        "max_retries": 1
+      },
+      "custom_provider_config": {
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        }
+      }
+    },
+    "nvidia": {
+      "keys": [
+        {
+          "name": "nvidia-key-1",
+          "value": "env.NVIDIA_API_KEY_1",
+          "models": [
+            "openai/gpt-oss-120b",
+            "nvidia/nemotron-3-ultra-550b-a55b"
+          ],
+          "weight": 1.0
+        },
+        {
+          "name": "nvidia-key-2",
+          "value": "env.NVIDIA_API_KEY_2",
+          "models": [
+            "openai/gpt-oss-120b",
+            "nvidia/nemotron-3-ultra-550b-a55b"
+          ],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "base_url": "https://integrate.api.nvidia.com",
+        "default_request_timeout_in_seconds": 120,
         "max_retries": 1
       },
       "custom_provider_config": {
@@ -41,7 +75,7 @@
       ],
       "network_config": {
         "base_url": "https://apihub.agnes-ai.com",
-        "default_request_timeout_in_seconds": 180,
+        "default_request_timeout_in_seconds": 120,
         "max_retries": 1
       },
       "custom_provider_config": {
@@ -91,6 +125,18 @@
           },
           {
             "id": 2,
+            "provider": "nvidia",
+            "allowed_models": [
+              "openai/gpt-oss-120b",
+              "nvidia/nemotron-3-ultra-550b-a55b"
+            ],
+            "rate_limit": {
+              "request_max_limit": 30,
+              "request_reset_duration": "1m"
+            }
+          },
+          {
+            "id": 3,
             "provider": "agnes",
             "rate_limit": {
               "request_max_limit": 30,

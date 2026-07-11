@@ -3,6 +3,7 @@
 [![Bifrost](https://img.shields.io/badge/Powered%20by-Bifrost-FF6B35?style=for-the-badge)](https://github.com/maximhq/bifrost)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/product/claude-code)
 [![OpenCode Zen](https://img.shields.io/badge/Backend-OpenCode%20Zen-6C47FF?style=for-the-badge)](https://opencode.ai)
+[![NVIDIA NIM](https://img.shields.io/badge/Backend-NVIDIA%20NIM-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://build.nvidia.com/explore/discover)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
 A proxy gateway that routes Claude Code through **Bifrost** (Go, ~11µs overhead, Redis caching) to multiple backend providers.
@@ -12,8 +13,8 @@ A proxy gateway that routes Claude Code through **Bifrost** (Go, ~11µs overhead
 ## Features
 
 - **Single proxy**: Bifrost (Go, fast, Redis semantic caching)
-- **Multi-provider routing**: OpenCode, Agnes through a single endpoint
-- **Load balancing**: Multiple API keys per provider
+- **Multi-provider routing**: NVIDIA NIM, OpenCode, Agnes through a single endpoint
+- **Load balancing**: Two NVIDIA API keys with per-key retry rotation
 - **Docker Native**: Official images, compose file ready
 - **Secure**: Environment-based API key management
 
@@ -52,7 +53,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 ```
 
-Required keys: `OPENCODE_API_KEY`, `AGNES_API_KEY`.
+Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `OPENCODE_API_KEY`, `AGNES_API_KEY`.
 
 ### 2. Deploy
 
@@ -74,12 +75,13 @@ curl http://localhost:4000/v1/models
 
 ### Bifrost — `bifrost/config.json`
 
-| Provider | Timeout | Models                                            | Keys              |
-| :------- | :------ | :------------------------------------------------ | :---------------- |
-| opencode | 180s    | `nemotron-3-ultra-free`, `deepseek-v4-flash-free` | 1 key, weight 1.0 |
-| agnes    | 180s    | `agnes-2.0-flash`                                 | 1 key, weight 1.0 |
+| Provider | Timeout | Models                                                     | Keys                    |
+| :------- | :------ | :--------------------------------------------------------- | :---------------------- |
+| opencode | 120s    | `mimo-v2.5-free`                                           | 1 key, weight 1.0       |
+| nvidia   | 120s    | `openai/gpt-oss-120b`, `nvidia/nemotron-3-ultra-550b-a55b` | 2 keys, weight 1.0 each |
+| agnes    | 120s    | `agnes-2.0-flash`                                          | 1 key, weight 1.0       |
 
-**Request format:** `<provider>/<model>` (e.g. `opencode/nemotron-3-ultra-free`).
+**Request format:** `<provider>/<model>` (e.g. `nvidia/openai/gpt-oss-120b`, `opencode/mimo-v2.5-free`, `agnes/agnes-2.0-flash`).
 
 ---
 
@@ -91,9 +93,9 @@ The proxy URL and model names for Bifrost. Set these in `~/.profile` (or equival
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:4000/anthropic
-export ANTHROPIC_DEFAULT_OPUS_MODEL=opencode/nemotron-3-ultra-free
-export ANTHROPIC_DEFAULT_SONNET_MODEL=agnes/agnes-2.0-flash
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=opencode/deepseek-v4-flash-free
+export ANTHROPIC_DEFAULT_OPUS_MODEL=nvidia/nvidia/nemotron-3-ultra-550b-a55b
+export ANTHROPIC_DEFAULT_SONNET_MODEL=opencode/mimo-v2.5-free
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/openai/gpt-oss-120b
 ```
 
 After editing, `source ~/.profile` or open a new shell before running `claude`.
