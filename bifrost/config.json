@@ -1,263 +1,325 @@
 {
-    "$schema": "https://www.getbifrost.ai/schema",
-    "client": {
-        "enable_logging": true,
-        "compat": {
-            "should_drop_params": true,
-            "should_convert_params": true
-        }
-    },
-    "providers": {
-        "nvidia": {
-            "keys": [
-                {
-                    "name": "nvidia-key-1",
-                    "value": "env.NVIDIA_API_KEY_1",
-                    "models": [
-                        "nvidia/nemotron-3.5-super-vl-120b-a12b",
-                        "nvidia/nemotron-3.5-lightning-30b-a3b"
-                    ],
-                    "weight": 1.0
-                },
-                {
-                    "name": "nvidia-key-2",
-                    "value": "env.NVIDIA_API_KEY_2",
-                    "models": [
-                        "nvidia/nemotron-3.5-super-vl-120b-a12b",
-                        "nvidia/nemotron-3.5-lightning-30b-a3b"
-                    ],
-                    "weight": 1.0
-                }
-            ],
-            "network_config": {
-                "base_url": "https://integrate.api.nvidia.com",
-                "default_request_timeout_in_seconds": 180,
-                "max_retries": 1
-            },
-            "custom_provider_config": {
-                "base_provider_type": "openai",
-                "allowed_requests": {
-                    "chat_completion": true,
-                    "chat_completion_stream": true
-                }
-            }
-        },
-        "agnes": {
-            "keys": [
-                {
-                    "name": "agnes-key",
-                    "value": "env.AGNES_API_KEY",
-                    "models": [
-                        "agnes-2.5-flash"
-                    ],
-                    "weight": 1.0
-                }
-            ],
-            "network_config": {
-                "base_url": "https://apihub.agnes-ai.com",
-                "default_request_timeout_in_seconds": 180,
-                "max_retries": 1
-            },
-            "custom_provider_config": {
-                "base_provider_type": "openai",
-                "allowed_requests": {
-                    "chat_completion": true,
-                    "chat_completion_stream": true
-                }
-            }
-        },
-        "sensenova": {
-            "keys": [
-                {
-                    "name": "sensenova-key",
-                    "value": "env.SENSENOVA_API_KEY",
-                    "models": [
-                        "sensenova-6.8-flash-lite"
-                    ],
-                    "weight": 1.0
-                }
-            ],
-            "network_config": {
-                "base_url": "https://token.sensenova.ai",
-                "default_request_timeout_in_seconds": 180,
-                "max_retries": 1
-            },
-            "custom_provider_config": {
-                "base_provider_type": "openai",
-                "allowed_requests": {
-                    "chat_completion": true,
-                    "chat_completion_stream": true
-                }
-            }
-        },
-        "amd": {
-            "keys": [
-                {
-                    "name": "amd-key",
-                    "value": "env.AMD_API_KEY",
-                    "models": [
-                        "Qwen3.8-27B",
-                        "Qwen3.8-Flash-Next"
-                    ],
-                    "weight": 1.0
-                }
-            ],
-            "network_config": {
-                "base_url": "https://developer.amd.com.cn/radeon",
-                "default_request_timeout_in_seconds": 180,
-                "max_retries": 1
-            },
-            "custom_provider_config": {
-                "base_provider_type": "openai",
-                "allowed_requests": {
-                    "chat_completion": true,
-                    "chat_completion_stream": true
-                }
-            }
-        },
-        "gemini": {
-            "keys": [
-                {
-                    "name": "gemini-key-1",
-                    "value": "env.GEMINI_API_KEY_1",
-                    "models": [
-                        "gemini-3.5-flash-lite",
-                        "gemini-3.1-flash-lite"
-                    ],
-                    "weight": 1.0
-                },
-                {
-                    "name": "gemini-key-2",
-                    "value": "env.GEMINI_API_KEY_2",
-                    "models": [
-                        "gemini-3.5-flash-lite",
-                        "gemini-3.1-flash-lite"
-                    ],
-                    "weight": 1.0
-                }
-            ],
-            "network_config": {
-                "default_request_timeout_in_seconds": 180,
-                "max_retries": 1
-            }
-        }
-    },
-    "vector_store": {
-        "enabled": true,
-        "type": "redis",
-        "config": {
-            "addr": "redis:6379"
-        }
-    },
-    "plugins": [
-        {
-            "enabled": true,
-            "name": "semantic_cache",
-            "config": {
-                "dimension": 1,
-                "ttl": "10m",
-                "cache_by_model": true,
-                "cache_by_provider": true,
-                "conversation_history_threshold": 3,
-                "vector_store_namespace": "BifrostCache"
-            }
-        }
-    ],
-    "governance": {
-        "rate_limits": [
-            {
-                "id": "rl-nvidia",
-                "request_max_limit": 30,
-                "request_reset_duration": "1m"
-            },
-            {
-                "id": "rl-agnes",
-                "request_max_limit": 10,
-                "request_reset_duration": "1m"
-            },
-            {
-                "id": "rl-sensenova",
-                "request_max_limit": 10,
-                "request_reset_duration": "1m"
-            },
-            {
-                "id": "rl-amd",
-                "request_max_limit": 10,
-                "request_reset_duration": "1m"
-            },
-            {
-                "id": "rl-gemini",
-                "request_max_limit": 30,
-                "request_reset_duration": "1m"
-            }
-        ],
-        "virtual_keys": [
-            {
-                "id": "vk-default",
-                "name": "default",
-                "value": "env.BIFROST_VIRTUAL_KEY",
-                "is_active": true,
-                "provider_configs": [
-                    {
-                        "id": 1,
-                        "provider": "nvidia",
-                        "allowed_models": [
-                            "nvidia/nemotron-3.5-super-vl-120b-a12b",
-                            "nvidia/nemotron-3.5-lightning-30b-a3b"
-                        ],
-                        "rate_limit_id": "rl-nvidia",
-                        "key_ids": [
-                            "*"
-                        ]
-                    },
-                    {
-                        "id": 2,
-                        "provider": "agnes",
-                        "allowed_models": [
-                            "agnes-2.5-flash"
-                        ],
-                        "rate_limit_id": "rl-agnes",
-                        "key_ids": [
-                            "*"
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "provider": "sensenova",
-                        "allowed_models": [
-                            "sensenova-6.8-flash-lite"
-                        ],
-                        "rate_limit_id": "rl-sensenova",
-                        "key_ids": [
-                            "*"
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "provider": "amd",
-                        "allowed_models": [
-                            "Qwen3.8-27B",
-                            "Qwen3.8-Flash-Next"
-                        ],
-                        "rate_limit_id": "rl-amd",
-                        "key_ids": [
-                            "*"
-                        ]
-                    },
-                    {
-                        "id": 5,
-                        "provider": "gemini",
-                        "allowed_models": [
-                            "gemini-3.5-flash-lite",
-                            "gemini-3.1-flash-lite"
-                        ],
-                        "rate_limit_id": "rl-gemini",
-                        "key_ids": [
-                            "*"
-                        ]
-                    }
-                ]
-            }
-        ]
+  "$schema": "https://www.getbifrost.ai/schema",
+  "client": {
+    "enable_logging": true,
+    "compat": {
+      "should_drop_params": true,
+      "should_convert_params": true
     }
+  },
+  "providers": {
+    "nvidia": {
+      "keys": [
+        {
+          "name": "nvidia-key-1",
+          "value": "env.NVIDIA_API_KEY_1",
+          "models": [
+            "nvidia/nemotron-3.5-super-vl-120b-a12b",
+            "nvidia/nemotron-3.5-lightning-30b-a3b"
+          ],
+          "weight": 1.0
+        },
+        {
+          "name": "nvidia-key-2",
+          "value": "env.NVIDIA_API_KEY_2",
+          "models": [
+            "nvidia/nemotron-3.5-super-vl-120b-a12b",
+            "nvidia/nemotron-3.5-lightning-30b-a3b"
+          ],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "base_url": "https://integrate.api.nvidia.com",
+        "default_request_timeout_in_seconds": 180,
+        "max_retries": 1
+      },
+      "custom_provider_config": {
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        }
+      }
+    },
+    "agnes": {
+      "keys": [
+        {
+          "name": "agnes-key",
+          "value": "env.AGNES_API_KEY",
+          "models": ["agnes-2.5-flash"],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "base_url": "https://apihub.agnes-ai.com",
+        "default_request_timeout_in_seconds": 180,
+        "max_retries": 1
+      },
+      "custom_provider_config": {
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        }
+      }
+    },
+    "sensenova": {
+      "keys": [
+        {
+          "name": "sensenova-key",
+          "value": "env.SENSENOVA_API_KEY",
+          "models": ["sensenova-6.8-flash-lite"],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "base_url": "https://token.sensenova.ai",
+        "default_request_timeout_in_seconds": 180,
+        "max_retries": 1
+      },
+      "custom_provider_config": {
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        }
+      }
+    },
+    "amd": {
+      "keys": [
+        {
+          "name": "amd-key",
+          "value": "env.AMD_API_KEY",
+          "models": ["Qwen3.8-27B", "Qwen3.8-Flash-Next"],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "base_url": "https://developer.amd.com.cn/radeon",
+        "default_request_timeout_in_seconds": 180,
+        "max_retries": 1
+      },
+      "custom_provider_config": {
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        }
+      }
+    },
+    "gemini": {
+      "keys": [
+        {
+          "name": "gemini-key-1",
+          "value": "env.GEMINI_API_KEY_1",
+          "models": ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+          "weight": 1.0
+        },
+        {
+          "name": "gemini-key-2",
+          "value": "env.GEMINI_API_KEY_2",
+          "models": ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "default_request_timeout_in_seconds": 180,
+        "max_retries": 1
+      }
+    }
+  },
+  "vector_store": {
+    "enabled": true,
+    "type": "redis",
+    "config": {
+      "addr": "redis:6379"
+    }
+  },
+  "plugins": [
+    {
+      "enabled": true,
+      "name": "semantic_cache",
+      "config": {
+        "dimension": 1,
+        "ttl": "10m",
+        "cache_by_model": true,
+        "cache_by_provider": true,
+        "conversation_history_threshold": 3,
+        "vector_store_namespace": "BifrostCache"
+      }
+    }
+  ],
+  "governance": {
+    "rate_limits": [
+      {
+        "id": "rl-nvidia",
+        "request_max_limit": 30,
+        "request_reset_duration": "1m"
+      },
+      {
+        "id": "rl-agnes",
+        "request_max_limit": 10,
+        "request_reset_duration": "1m"
+      },
+      {
+        "id": "rl-sensenova",
+        "request_max_limit": 10,
+        "request_reset_duration": "1m"
+      },
+      {
+        "id": "rl-amd",
+        "request_max_limit": 10,
+        "request_reset_duration": "1m"
+      },
+      {
+        "id": "rl-gemini",
+        "request_max_limit": 30,
+        "request_reset_duration": "1m"
+      }
+    ],
+    "routing_rules": [
+      {
+        "id": "claude-sonnet-5-rotation",
+        "name": "Claude Sonnet 5 Rotation",
+        "description": "Rotate across agnes, sensenova, amd (simple-shuffle equivalent)",
+        "enabled": true,
+        "cel_expression": "model == 'claude-sonnet-5'",
+        "targets": [
+          {
+            "provider": "agnes",
+            "model": "agnes-2.5-flash",
+            "weight": 0.34
+          },
+          {
+            "provider": "sensenova",
+            "model": "sensenova-6.8-flash-lite",
+            "weight": 0.33
+          },
+          {
+            "provider": "amd",
+            "model": "Qwen3.8-27B",
+            "weight": 0.33
+          }
+        ],
+        "fallbacks": [
+          "gemini/gemini-3.5-flash-lite",
+          "gemini/gemini-3.1-flash-lite"
+        ],
+        "scope": "global",
+        "priority": 0
+      },
+      {
+        "id": "claude-opus-5-5-route",
+        "name": "Claude Opus 5.5 Route",
+        "description": "Route opus to nvidia super-vl with gemini fallbacks",
+        "enabled": true,
+        "cel_expression": "model == 'claude-opus-5-5'",
+        "targets": [
+          {
+            "provider": "nvidia",
+            "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+            "weight": 1.0
+          }
+        ],
+        "fallbacks": [
+          "gemini/gemini-3.5-flash-lite",
+          "gemini/gemini-3.1-flash-lite"
+        ],
+        "scope": "global",
+        "priority": 10
+      },
+      {
+        "id": "claude-haiku-5-5-route",
+        "name": "Claude Haiku 5.5 Route",
+        "description": "Route haiku to nvidia lightning with gemini fallbacks",
+        "enabled": true,
+        "cel_expression": "model == 'claude-haiku-5-5'",
+        "targets": [
+          {
+            "provider": "nvidia",
+            "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+            "weight": 1.0
+          }
+        ],
+        "fallbacks": [
+          "gemini/gemini-3.5-flash-lite",
+          "gemini/gemini-3.1-flash-lite"
+        ],
+        "scope": "global",
+        "priority": 20
+      },
+      {
+        "id": "claude-fable-5-1-route",
+        "name": "Claude Fable 5.1 Route",
+        "description": "Route fable to amd with gemini fallbacks",
+        "enabled": true,
+        "cel_expression": "model == 'claude-fable-5-1'",
+        "targets": [
+          {
+            "provider": "amd",
+            "model": "Qwen3.8-Flash-Next",
+            "weight": 1.0
+          }
+        ],
+        "fallbacks": [
+          "gemini/gemini-3.5-flash-lite",
+          "gemini/gemini-3.1-flash-lite"
+        ],
+        "scope": "global",
+        "priority": 30
+      }
+    ],
+    "virtual_keys": [
+      {
+        "id": "vk-default",
+        "name": "default",
+        "value": "env.BIFROST_VIRTUAL_KEY",
+        "is_active": true,
+        "provider_configs": [
+          {
+            "id": 1,
+            "provider": "nvidia",
+            "allowed_models": [
+              "nvidia/nemotron-3.5-super-vl-120b-a12b",
+              "nvidia/nemotron-3.5-lightning-30b-a3b"
+            ],
+            "rate_limit_id": "rl-nvidia",
+            "key_ids": ["*"]
+          },
+          {
+            "id": 2,
+            "provider": "agnes",
+            "allowed_models": ["agnes-2.5-flash"],
+            "rate_limit_id": "rl-agnes",
+            "key_ids": ["*"]
+          },
+          {
+            "id": 3,
+            "provider": "sensenova",
+            "allowed_models": ["sensenova-6.8-flash-lite"],
+            "rate_limit_id": "rl-sensenova",
+            "key_ids": ["*"]
+          },
+          {
+            "id": 4,
+            "provider": "amd",
+            "allowed_models": ["Qwen3.8-27B", "Qwen3.8-Flash-Next"],
+            "rate_limit_id": "rl-amd",
+            "key_ids": ["*"]
+          },
+          {
+            "id": 5,
+            "provider": "gemini",
+            "allowed_models": [
+              "gemini-3.5-flash-lite",
+              "gemini-3.1-flash-lite"
+            ],
+            "rate_limit_id": "rl-gemini",
+            "key_ids": ["*"]
+          }
+        ]
+      }
+    ]
+  }
 }

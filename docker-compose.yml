@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis/redis-stack-server:7.4.0-v1
+    image: redis/redis-stack-server:7.4.0-v8
     container_name: bifrost-redis
     expose:
       - "6379"
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   bifrost:
-    image: maximhq/bifrost:v1.5.16
+    image: maximhq/bifrost:v2.3.2
     container_name: bifrost
     ports:
       - "4000:8080"
