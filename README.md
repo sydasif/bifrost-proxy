@@ -87,7 +87,9 @@ curl http://localhost:4000/v1/models
 | amd       | 180s    | `Qwen3.8-27B`, `Qwen3.8-Flash-Next`                                               | 1 key, weight 1.0       |
 | gemini    | 180s    | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`                                  | 2 keys, weight 1.0 each |
 
-**Request format:** `<provider>/<model>` (e.g. `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`, `agnes/agnes-2.5-flash`, `sensenova/sensenova-6.8-flash-lite`, `amd/Qwen3.8-Flash-Next`, `gemini/gemini-3.5-flash-lite`).
+**Request format:** `<provider>/<model>` (e.g. `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`, `agnes/agnes-2.5-flash`, `sensenova/sensenova-6.8-flash-lite`, `amd/Qwen3.8-Flash-Next`, `gemini/gemini-3.5-flash-lite`). Claude Code uses aliases rewritten by `governance.routing_rules` (sonnet rotates across agnes/sensenova/amd; all aliases have gemini fallbacks).
+
+**Images:** `maximhq/bifrost:v2.3.2`, `redis/redis-stack-server:7.4.0-v8`.
 
 ---
 
@@ -97,11 +99,11 @@ Claude Code is routed to Bifrost through `~/.claude/settings.json` (`ANTHROPIC_B
 
 ```bash
 export ANTHROPIC_AUTH_TOKEN=<same value as BIFROST_VIRTUAL_KEY in .env>
-export ANTHROPIC_DEFAULT_OPUS_MODEL=nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b
-export ANTHROPIC_DEFAULT_SONNET_MODEL=agnes/agnes-2.5-flash
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
-export ANTHROPIC_DEFAULT_FABLE_MODEL=amd/Qwen3.8-Flash-Next
-export CLAUDE_CODE_SUBAGENT_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
+export ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-5-5
+export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-5
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-5-5
+export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-1
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-5-5
 export CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000
 ```
 

@@ -16,6 +16,8 @@ curl http://localhost:4000/         # Health / models check
 docker compose pull && docker compose up -d  # Update image + restart
 ```
 
+**Images:** `maximhq/bifrost:v2.3.2`, `redis/redis-stack-server:7.4.0-v8`
+
 ---
 
 ## Provider Configuration
@@ -56,34 +58,35 @@ Bifrost validates the `Authorization: Bearer` header against virtual keys. Reque
 
 ### Resilience & Fallbacks
 
-Bifrost provides two layers of fault tolerance:
+Bifrost provides three layers of fault tolerance:
 
 - **Key rotation** (same provider): NVIDIA and Gemini have 2 API keys each. If one hits a rate limit or auth error, Bifrost rotates to the other key. Each key gets its own retry budget.
 - **Cross-provider retries** (same model): Each provider is configured with `max_retries: 1`. Transient failures (5xx, network) retry on the same key with exponential backoff; per-key failures (429, 401, 403) rotate to the next key immediately.
+- **Routing rules (alias + rotation + fallbacks):** `governance.routing_rules` maps Claude Code aliases to real providers and carries LiteLLM-equivalent gemini fallbacks.
 
-**Note:** Bifrost fallbacks are provider-level (same model on different provider), not model-level (different model on different provider) like LiteLLM. LiteLLM falls back `claude-*` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`; Bifrost has no config-level equivalent, so the client must send a `fallbacks` array in the request body:
+| Alias              | Targets (weights)                                                                                     | Fallbacks                                                      |
+| :----------------- | :---------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
+| `claude-sonnet-5`  | `agnes/agnes-2.5-flash` (0.34), `sensenova/sensenova-6.8-flash-lite` (0.33), `amd/Qwen3.8-27B` (0.33) | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
+| `claude-opus-5-5`  | `nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b` (1.0)                                                 | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
+| `claude-haiku-5-5` | `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b` (1.0)                                                  | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
+| `claude-fable-5-1` | `amd/Qwen3.8-Flash-Next` (1.0)                                                                        | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
 
-```json
-{
-  "model": "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
-  "fallbacks": ["gemini/gemini-3.5-flash-lite", "gemini/gemini-3.1-flash-lite"]
-}
-```
+Routing rules load from `config.json` and run before governance provider selection. Weights must sum to 1; rules are evaluated by scope/priority (global, priority 0/10/20/30). Config changes require `docker compose down && up -d`.
 
 ### Claude Code Wiring — `~/.zprofile` + `~/.claude/settings.json`
 
 Claude Code is routed to **Bifrost** (active gateway on `:4000`):
 
-| Setting                                          | Value                                           |
-| ------------------------------------------------ | ----------------------------------------------- |
-| `ANTHROPIC_BASE_URL` (`~/.claude/settings.json`) | `http://localhost:4000/anthropic`               |
-| `ANTHROPIC_AUTH_TOKEN` (`~/.zprofile`)           | must equal `BIFROST_VIRTUAL_KEY` in `.env`      |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL`                   | `nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b` |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL`                 | `agnes/agnes-2.5-flash`                         |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL`                  | `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`  |
-| `ANTHROPIC_DEFAULT_FABLE_MODEL`                  | `amd/Qwen3.8-Flash-Next`                        |
-| `CLAUDE_CODE_SUBAGENT_MODEL`                     | `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`  |
-| `CLAUDE_CODE_AUTO_COMPACT_WINDOW`                | `200000`                                        |
+| Setting                                          | Value                                      |
+| ------------------------------------------------ | ------------------------------------------ |
+| `ANTHROPIC_BASE_URL` (`~/.claude/settings.json`) | `http://localhost:4000/anthropic`          |
+| `ANTHROPIC_AUTH_TOKEN` (`~/.zprofile`)           | must equal `BIFROST_VIRTUAL_KEY` in `.env` |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL`                   | `claude-opus-5-5`                          |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL`                 | `claude-sonnet-5`                          |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL`                  | `claude-haiku-5-5`                         |
+| `ANTHROPIC_DEFAULT_FABLE_MODEL`                  | `claude-fable-5-1`                         |
+| `CLAUDE_CODE_SUBAGENT_MODEL`                     | `claude-haiku-5-5`                         |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW`                | `200000`                                   |
 
 `/anthropic` is required: Bifrost's Anthropic drop-in lives at `http://localhost:4000/anthropic/v1/messages`.
 
@@ -99,7 +102,7 @@ cd /home/zulu/bifrost-proxy && docker compose down
 cd /home/zulu/litellm-proxy && docker compose up -d
 ```
 
-Then restore the LiteLLM aliases in `~/.zprofile` (`claude-opus-5-5`, `claude-sonnet-5`, `claude-haiku-5-5`, `claude-fable-5-1`), restore `ANTHROPIC_AUTH_TOKEN` to the LiteLLM master key, and set `ANTHROPIC_BASE_URL` back to `http://localhost:4000` in `~/.claude/settings.json`.
+The aliases in `~/.zprofile` are now identical to LiteLLM. Only restore `ANTHROPIC_AUTH_TOKEN` to the LiteLLM master key and set `ANTHROPIC_BASE_URL` back to `http://localhost:4000` in `~/.claude/settings.json`.
 
 ---
 
