@@ -113,6 +113,34 @@ Routing rules load from `config.json` and run before governance provider selecti
 
 **Fallback semantics (verified):** a broken or throttled upstream (401/429/5xx) on a routing-rule target transparently fails over to the next fallback — `X-Bifrost-Fallback-Index: 1` plus `X-Bifrost-Routing-Info-Is-Fallback: true` on the response. A governance/rate-limit rejection does not. Direct `<provider>/<model>` requests (bypassing a routing rule) have no fallback either — they surface the upstream error, and with `max_retries: 1` a throttled provider can stall for 25–80s before returning it.
 
+### Cost & Pricing
+
+Every request gets a dollar cost in the dashboard from Bifrost's synced pricing catalog, plus `governance.pricing_overrides` for models the catalog doesn't know (the nemotron/agnes/sensenova free-tier models) and for the Claude aliases — alias traffic is priced by the model the caller sent, so `claude-sonnet-5` needs its own pattern or the row shows `cost=null`.
+
+Two gotchas, both silent:
+
+- **`0` is ignored in an override.** A patch of `{"input_cost_per_token": 0}` applies nothing and the row stays `null`. These providers bill nothing on their free tiers, so they carry **approximate** market rates for personal cost reference — these are estimates, not invoices; edit them when you have real numbers.
+
+Current estimates (USD per 1M tokens), applied as `cost = in × prompt_tokens + out × completion_tokens`:
+
+| Pattern | in | out | basis |
+| :--- | ---: | ---: | :--- |
+| `nvidia/nemotron-3.5-super-vl-120b-a12b` | 0.40 | 1.20 | 120B class |
+| `nvidia/nemotron-3.5-lightning-30b-a3b` | 0.10 | 0.30 | 30B MoE, fast |
+| `agnes-2.5-flash` | 0.15 | 0.60 | flash class |
+| `sensenova-6.8-flash-lite` | 0.05 | 0.20 | lite class |
+| `claude-opus-5-5` | 0.40 | 1.20 | resolves to nemotron super |
+| `claude-haiku-5-5` | 0.10 | 0.30 | resolves to nemotron lightning |
+| `claude-sonnet-5` | 0.15 | 0.50 | blended across the 3-way rotation |
+| `claude-fable-5-1` | 0.10 | 0.30 | resolves to Qwen Flash-Next |
+
+The amd `Qwen3.8-*` models have no override — they use the catalog's own rates (≈$0.06–0.26/M blended observed). When the resolved model has a catalog entry, that price wins over the alias override, so a `claude-sonnet-5` request served by amd is billed at the Qwen rate rather than the blended alias rate.
+- **Anthropic `/v1/messages` is billed as the `responses` request type**, not `chat_completion`. `request_types` must include both, or Claude Code traffic is never priced while `/v1/chat/completions` works — which is exactly how this looked broken during setup.
+
+Providers that return their own `usage.cost` take precedence over catalog/override pricing; set `ignore_provider_cost: true` on a provider to force catalog rates instead. `tests/edge-cases.sh --static` rejects zero-rate overrides and notes `chat_completion`-only entries.
+
+To change rates: edit `pricing_patch` in `config.json` and `down && up -d`, or `PUT /api/governance/pricing-overrides/{id}` with `{"patch": {"input_cost_per_token": …, "output_cost_per_token": …}}` for a live change.
+
 ### Claude Code Wiring — `~/.zprofile` + `~/.claude/settings.json`
 
 Claude Code is routed to **Bifrost** (active gateway on `:4000`):

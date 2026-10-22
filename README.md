@@ -18,6 +18,7 @@ Provider and model configuration is kept in sync with the sibling `litellm-proxy
 - **Load balancing**: weighted rotation for the Claude Code aliases; NVIDIA and Gemini each have 2 API keys with per-key retry rotation
 - **Self-healing**: broken/throttled upstreams fall back to Gemini transparently
 - **Disposable cache**: Redis runs with persistence off — nothing to fsync, nothing to corrupt
+- **Cost tracking**: per-request dollar cost from the pricing catalog plus `governance.pricing_overrides` for models and aliases it doesn't know
 - **Docker Native**: Official images, compose file ready
 - **Secure**: Environment-based API key management
 

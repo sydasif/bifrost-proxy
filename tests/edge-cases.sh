@@ -154,6 +154,26 @@ for plugin in cfg.get('plugins', []):
         if cfg.get('vector_store', {}).get('enabled') is not True:
             errors.append("semantic_cache enabled but vector_store is not enabled")
 
+# Pricing overrides must be well-formed; zero rates are silently ignored by Bifrost.
+for o in gov.get('pricing_overrides', []):
+    for field in ('id', 'name', 'scope_kind', 'match_type', 'pattern'):
+        if not o.get(field):
+            errors.append(f"pricing override {o.get('id') or o.get('name')!r} is missing '{field}'")
+    rts = o.get('request_types') or []
+    if not rts:
+        errors.append(f"pricing override '{o.get('name')}' has no request_types (required)")
+    if 'chat_completion' in rts and 'responses' not in rts:
+        notes.append(f"pricing override '{o.get('name')}' covers chat_completion only; "
+                     "Anthropic /messages traffic is billed as 'responses' and will not be priced")
+    try:
+        patch = json.loads(o.get('pricing_patch') or '{}')
+    except json.JSONDecodeError:
+        errors.append(f"pricing override '{o.get('name')}' has an invalid pricing_patch")
+        continue
+    rates = [v for k, v in patch.items() if 'cost' in k and isinstance(v, (int, float))]
+    if rates and all(r == 0 for r in rates):
+        errors.append(f"pricing override '{o.get('name')}' sets only zero rates, which Bifrost ignores")
+
 print("  resolved env refs:", len(refs))
 for n in notes:
     print(f"  \033[33mNOTE\033[0m {n}")
@@ -180,7 +200,13 @@ expect "GET /v1/models without credentials" 401 "$CODE"
 req GET "$BASE/v1/models" -H "Authorization: Bearer definitely-not-the-key"
 expect "GET /v1/models with wrong key" 401 "$CODE"
 
+# /v1/models fans out to every provider, so one provider's transient list_models
+# failure surfaces as 5xx. Allow a single retry, then fail for real.
 req GET "$BASE/v1/models" -H "$AUTH"
+if [ "$CODE" -ge 500 ] 2>/dev/null; then
+  sleep 2
+  req GET "$BASE/v1/models" -H "$AUTH"
+fi
 expect "GET /v1/models with virtual key" 200 "$CODE"
 
 req POST "$BASE/anthropic/v1/messages" -H "$JSON" \
@@ -271,6 +297,18 @@ for alias in claude-sonnet-5 claude-opus-5-5 claude-haiku-5-5 claude-fable-5-1; 
     bad "$alias returned $CODE: $(head -c 160 "$BODY")"
   fi
 done
+
+# Claude Code traffic must come back with a computed cost. Cache replays are excluded:
+# they never reach the provider, so Bifrost logs cost=null for them by design.
+cost_state=$(curl -s -b "$COOKIE" "$BASE/api/logs?limit=20" | python3 -c "
+import json,sys
+rows=[l for l in json.load(sys.stdin).get('logs',[])
+      if l.get('status')=='success' and not (l.get('cache_debug') or {}).get('cache_hit')
+      and l.get('object') in ('chat_completion','responses')]
+if not rows: print('no-rows'); raise SystemExit
+newest=max(rows,key=lambda x:x.get('timestamp',''))
+print('priced' if newest.get('cost') is not None else 'null')" 2>/dev/null)
+expect "newest billed (non-cached) request is priced" "priced" "$cost_state"
 
 ##############################################################################
 section "6. Streaming"
