@@ -2,19 +2,20 @@
 
 [![Bifrost](https://img.shields.io/badge/Powered%20by-Bifrost-FF6B35?style=for-the-badge)](https://github.com/maximhq/bifrost)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.com/product/claude-code)
-[![OpenCode Zen](https://img.shields.io/badge/Backend-OpenCode%20Zen-6C47FF?style=for-the-badge)](https://opencode.ai)
 [![NVIDIA NIM](https://img.shields.io/badge/Backend-NVIDIA%20NIM-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://build.nvidia.com/explore/discover)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
 A proxy gateway that routes Claude Code through **Bifrost** (Go, ~11µs overhead, Redis caching) to multiple backend providers.
+
+Provider and model configuration is kept in sync with the sibling `litellm-proxy/` gateway — same upstreams, same models, same API keys.
 
 ---
 
 ## Features
 
 - **Single proxy**: Bifrost (Go, fast, Redis semantic caching)
-- **Multi-provider routing**: NVIDIA NIM, OpenCode, Agnes through a single endpoint
-- **Load balancing**: Two NVIDIA API keys with per-key retry rotation
+- **Multi-provider routing**: NVIDIA NIM, Agnes, Sensenova, AMD Radeon, Gemini through a single endpoint
+- **Load balancing**: NVIDIA and Gemini each have 2 API keys with per-key retry rotation
 - **Docker Native**: Official images, compose file ready
 - **Secure**: Environment-based API key management
 
@@ -53,7 +54,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 ```
 
-Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `OPENCODE_API_KEY`, `AGNES_API_KEY`.
+Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `AGNES_API_KEY`, `SENSENOVA_API_KEY`, `AMD_API_KEY`, `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`.
 
 ### 2. Deploy
 
@@ -62,6 +63,9 @@ docker compose up -d
 ```
 
 Proxy is now running at `http://localhost:4000`.
+
+> **Port conflict:** the sibling `litellm-proxy/` gateway binds the same host port `4000`. Stop one before starting the other:
+> `docker compose down` in the other directory.
 
 ### 3. Verify
 
@@ -75,30 +79,32 @@ curl http://localhost:4000/v1/models
 
 ### Bifrost — `bifrost/config.json`
 
-| Provider | Timeout | Models                                                     | Keys                    |
-| :------- | :------ | :--------------------------------------------------------- | :---------------------- |
-| opencode | 120s    | `mimo-v2.5-free`                                           | 1 key, weight 1.0       |
-| nvidia   | 120s    | `openai/gpt-oss-120b`, `nvidia/nemotron-3-ultra-550b-a55b` | 2 keys, weight 1.0 each |
-| agnes    | 120s    | `agnes-2.0-flash`                                          | 1 key, weight 1.0       |
+| Provider  | Timeout | Models                                                                            | Keys                    |
+| :-------- | :------ | :-------------------------------------------------------------------------------- | :---------------------- |
+| nvidia    | 180s    | `nvidia/nemotron-3.5-super-vl-120b-a12b`, `nvidia/nemotron-3.5-lightning-30b-a3b` | 2 keys, weight 1.0 each |
+| agnes     | 180s    | `agnes-2.5-flash`                                                                 | 1 key, weight 1.0       |
+| sensenova | 180s    | `sensenova-6.8-flash-lite`                                                        | 1 key, weight 1.0       |
+| amd       | 180s    | `Qwen3.8-27B`, `Qwen3.8-Flash-Next`                                               | 1 key, weight 1.0       |
+| gemini    | 180s    | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`                                  | 2 keys, weight 1.0 each |
 
-**Request format:** `<provider>/<model>` (e.g. `nvidia/openai/gpt-oss-120b`, `opencode/mimo-v2.5-free`, `agnes/agnes-2.0-flash`).
+**Request format:** `<provider>/<model>` (e.g. `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`, `agnes/agnes-2.5-flash`, `sensenova/sensenova-6.8-flash-lite`, `amd/Qwen3.8-Flash-Next`, `gemini/gemini-3.5-flash-lite`).
 
 ---
 
 ## Using with Claude Code
 
-The proxy URL and model names for Bifrost. Set these in `~/.profile` (or equivalent):
-
-### Bifrost (Current)
+Claude Code is currently wired to the **LiteLLM** gateway via `~/.zprofile` (aliases such as `claude-opus-5-5`). To serve it from Bifrost instead, stop LiteLLM, start Bifrost, and point Claude Code at Bifrost's provider/model names:
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:4000/anthropic
-export ANTHROPIC_DEFAULT_OPUS_MODEL=nvidia/nvidia/nemotron-3-ultra-550b-a55b
-export ANTHROPIC_DEFAULT_SONNET_MODEL=opencode/mimo-v2.5-free
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/openai/gpt-oss-120b
+export ANTHROPIC_DEFAULT_OPUS_MODEL=nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b
+export ANTHROPIC_DEFAULT_SONNET_MODEL=agnes/agnes-2.5-flash
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
+export ANTHROPIC_DEFAULT_FABLE_MODEL=amd/Qwen3.8-Flash-Next
+export CLAUDE_CODE_SUBAGENT_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
 ```
 
-After editing, `source ~/.profile` or open a new shell before running `claude`.
+After editing, `source ~/.zprofile` or open a new shell before running `claude`.
 
 ---
 

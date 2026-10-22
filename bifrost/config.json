@@ -1,150 +1,247 @@
 {
-  "$schema": "https://www.getbifrost.ai/schema",
-  "client": {
-    "enable_logging": true,
-    "compat": {
-      "should_drop_params": true,
-      "should_convert_params": true
-    }
-  },
-  "providers": {
-    "opencode": {
-      "keys": [
-        {
-          "name": "opencode-key",
-          "value": "env.OPENCODE_API_KEY",
-          "models": ["mimo-v2.5-free"],
-          "weight": 1.0
+    "$schema": "https://www.getbifrost.ai/schema",
+    "client": {
+        "enable_logging": true,
+        "compat": {
+            "should_drop_params": true,
+            "should_convert_params": true
         }
-      ],
-      "network_config": {
-        "base_url": "https://opencode.ai/zen",
-        "default_request_timeout_in_seconds": 120,
-        "max_retries": 1
-      },
-      "custom_provider_config": {
-        "base_provider_type": "openai",
-        "allowed_requests": {
-          "chat_completion": true,
-          "chat_completion_stream": true
-        }
-      }
     },
-    "nvidia": {
-      "keys": [
-        {
-          "name": "nvidia-key-1",
-          "value": "env.NVIDIA_API_KEY_1",
-          "models": [
-            "openai/gpt-oss-120b",
-            "nvidia/nemotron-3-ultra-550b-a55b"
-          ],
-          "weight": 1.0
-        },
-        {
-          "name": "nvidia-key-2",
-          "value": "env.NVIDIA_API_KEY_2",
-          "models": [
-            "openai/gpt-oss-120b",
-            "nvidia/nemotron-3-ultra-550b-a55b"
-          ],
-          "weight": 1.0
-        }
-      ],
-      "network_config": {
-        "base_url": "https://integrate.api.nvidia.com",
-        "default_request_timeout_in_seconds": 120,
-        "max_retries": 1
-      },
-      "custom_provider_config": {
-        "base_provider_type": "openai",
-        "allowed_requests": {
-          "chat_completion": true,
-          "chat_completion_stream": true
-        }
-      }
-    },
-    "agnes": {
-      "keys": [
-        {
-          "name": "agnes-key",
-          "value": "env.AGNES_API_KEY",
-          "models": ["agnes-2.0-flash"],
-          "weight": 1.0
-        }
-      ],
-      "network_config": {
-        "base_url": "https://apihub.agnes-ai.com",
-        "default_request_timeout_in_seconds": 120,
-        "max_retries": 1
-      },
-      "custom_provider_config": {
-        "base_provider_type": "openai",
-        "allowed_requests": {
-          "chat_completion": true,
-          "chat_completion_stream": true
-        }
-      }
-    }
-  },
-  "vector_store": {
-    "enabled": true,
-    "type": "redis",
-    "config": {
-      "addr": "redis:6379"
-    }
-  },
-  "plugins": [
-    {
-      "enabled": true,
-      "name": "semantic_cache",
-      "config": {
-        "dimension": 1,
-        "ttl": "10m",
-        "cache_by_model": true,
-        "cache_by_provider": true,
-        "conversation_history_threshold": 3,
-        "vector_store_namespace": "BifrostCache"
-      }
-    }
-  ],
-  "governance": {
-    "virtual_keys": [
-      {
-        "id": "vk-default",
-        "name": "default",
-        "is_active": true,
-        "provider_configs": [
-          {
-            "id": 1,
-            "provider": "opencode",
-            "rate_limit": {
-              "request_max_limit": 30,
-              "request_reset_duration": "1m"
-            }
-          },
-          {
-            "id": 2,
-            "provider": "nvidia",
-            "allowed_models": [
-              "openai/gpt-oss-120b",
-              "nvidia/nemotron-3-ultra-550b-a55b"
+    "providers": {
+        "nvidia": {
+            "keys": [
+                {
+                    "name": "nvidia-key-1",
+                    "value": "env.NVIDIA_API_KEY_1",
+                    "models": [
+                        "nvidia/nemotron-3.5-super-vl-120b-a12b",
+                        "nvidia/nemotron-3.5-lightning-30b-a3b"
+                    ],
+                    "weight": 1.0
+                },
+                {
+                    "name": "nvidia-key-2",
+                    "value": "env.NVIDIA_API_KEY_2",
+                    "models": [
+                        "nvidia/nemotron-3.5-super-vl-120b-a12b",
+                        "nvidia/nemotron-3.5-lightning-30b-a3b"
+                    ],
+                    "weight": 1.0
+                }
             ],
-            "rate_limit": {
-              "request_max_limit": 30,
-              "request_reset_duration": "1m"
+            "network_config": {
+                "base_url": "https://integrate.api.nvidia.com",
+                "default_request_timeout_in_seconds": 180,
+                "max_retries": 1
+            },
+            "custom_provider_config": {
+                "base_provider_type": "openai",
+                "allowed_requests": {
+                    "chat_completion": true,
+                    "chat_completion_stream": true
+                }
             }
-          },
-          {
-            "id": 3,
-            "provider": "agnes",
-            "rate_limit": {
-              "request_max_limit": 30,
-              "request_reset_duration": "1m"
+        },
+        "agnes": {
+            "keys": [
+                {
+                    "name": "agnes-key",
+                    "value": "env.AGNES_API_KEY",
+                    "models": [
+                        "agnes-2.5-flash"
+                    ],
+                    "weight": 1.0
+                }
+            ],
+            "network_config": {
+                "base_url": "https://apihub.agnes-ai.com",
+                "default_request_timeout_in_seconds": 180,
+                "max_retries": 1
+            },
+            "custom_provider_config": {
+                "base_provider_type": "openai",
+                "allowed_requests": {
+                    "chat_completion": true,
+                    "chat_completion_stream": true
+                }
             }
-          }
+        },
+        "sensenova": {
+            "keys": [
+                {
+                    "name": "sensenova-key",
+                    "value": "env.SENSENOVA_API_KEY",
+                    "models": [
+                        "sensenova-6.8-flash-lite"
+                    ],
+                    "weight": 1.0
+                }
+            ],
+            "network_config": {
+                "base_url": "https://token.sensenova.ai",
+                "default_request_timeout_in_seconds": 180,
+                "max_retries": 1
+            },
+            "custom_provider_config": {
+                "base_provider_type": "openai",
+                "allowed_requests": {
+                    "chat_completion": true,
+                    "chat_completion_stream": true
+                }
+            }
+        },
+        "amd": {
+            "keys": [
+                {
+                    "name": "amd-key",
+                    "value": "env.AMD_API_KEY",
+                    "models": [
+                        "Qwen3.8-27B",
+                        "Qwen3.8-Flash-Next"
+                    ],
+                    "weight": 1.0
+                }
+            ],
+            "network_config": {
+                "base_url": "https://developer.amd.com.cn/radeon",
+                "default_request_timeout_in_seconds": 180,
+                "max_retries": 1
+            },
+            "custom_provider_config": {
+                "base_provider_type": "openai",
+                "allowed_requests": {
+                    "chat_completion": true,
+                    "chat_completion_stream": true
+                }
+            }
+        },
+        "gemini": {
+            "keys": [
+                {
+                    "name": "gemini-key-1",
+                    "value": "env.GEMINI_API_KEY_1",
+                    "models": [
+                        "gemini-3.5-flash-lite",
+                        "gemini-3.1-flash-lite"
+                    ],
+                    "weight": 1.0
+                },
+                {
+                    "name": "gemini-key-2",
+                    "value": "env.GEMINI_API_KEY_2",
+                    "models": [
+                        "gemini-3.5-flash-lite",
+                        "gemini-3.1-flash-lite"
+                    ],
+                    "weight": 1.0
+                }
+            ],
+            "network_config": {
+                "default_request_timeout_in_seconds": 180,
+                "max_retries": 1
+            }
+        }
+    },
+    "vector_store": {
+        "enabled": true,
+        "type": "redis",
+        "config": {
+            "addr": "redis:6379"
+        }
+    },
+    "plugins": [
+        {
+            "enabled": true,
+            "name": "semantic_cache",
+            "config": {
+                "dimension": 1,
+                "ttl": "10m",
+                "cache_by_model": true,
+                "cache_by_provider": true,
+                "conversation_history_threshold": 3,
+                "vector_store_namespace": "BifrostCache"
+            }
+        }
+    ],
+    "governance": {
+        "rate_limits": [
+            {
+                "id": "rl-nvidia",
+                "request_max_limit": 30,
+                "request_reset_duration": "1m"
+            },
+            {
+                "id": "rl-agnes",
+                "request_max_limit": 10,
+                "request_reset_duration": "1m"
+            },
+            {
+                "id": "rl-sensenova",
+                "request_max_limit": 10,
+                "request_reset_duration": "1m"
+            },
+            {
+                "id": "rl-amd",
+                "request_max_limit": 10,
+                "request_reset_duration": "1m"
+            },
+            {
+                "id": "rl-gemini",
+                "request_max_limit": 30,
+                "request_reset_duration": "1m"
+            }
+        ],
+        "virtual_keys": [
+            {
+                "id": "vk-default",
+                "name": "default",
+                "is_active": true,
+                "provider_configs": [
+                    {
+                        "id": 1,
+                        "provider": "nvidia",
+                        "allowed_models": [
+                            "nvidia/nemotron-3.5-super-vl-120b-a12b",
+                            "nvidia/nemotron-3.5-lightning-30b-a3b"
+                        ],
+                        "rate_limit_id": "rl-nvidia"
+                    },
+                    {
+                        "id": 2,
+                        "provider": "agnes",
+                        "allowed_models": [
+                            "agnes-2.5-flash"
+                        ],
+                        "rate_limit_id": "rl-agnes"
+                    },
+                    {
+                        "id": 3,
+                        "provider": "sensenova",
+                        "allowed_models": [
+                            "sensenova-6.8-flash-lite"
+                        ],
+                        "rate_limit_id": "rl-sensenova"
+                    },
+                    {
+                        "id": 4,
+                        "provider": "amd",
+                        "allowed_models": [
+                            "Qwen3.8-27B",
+                            "Qwen3.8-Flash-Next"
+                        ],
+                        "rate_limit_id": "rl-amd"
+                    },
+                    {
+                        "id": 5,
+                        "provider": "gemini",
+                        "allowed_models": [
+                            "gemini-3.5-flash-lite",
+                            "gemini-3.1-flash-lite"
+                        ],
+                        "rate_limit_id": "rl-gemini"
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 }
