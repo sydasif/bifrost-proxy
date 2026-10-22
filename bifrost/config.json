@@ -34,7 +34,7 @@
       ],
       "network_config": {
         "base_url": "https://integrate.api.nvidia.com",
-        "default_request_timeout_in_seconds": 180,
+        "default_request_timeout_in_seconds": 90,
         "max_retries": 1
       },
       "custom_provider_config": {
@@ -56,7 +56,7 @@
       ],
       "network_config": {
         "base_url": "https://apihub.agnes-ai.com",
-        "default_request_timeout_in_seconds": 180,
+        "default_request_timeout_in_seconds": 90,
         "max_retries": 0
       },
       "custom_provider_config": {
@@ -78,7 +78,7 @@
       ],
       "network_config": {
         "base_url": "https://token.sensenova.ai",
-        "default_request_timeout_in_seconds": 180,
+        "default_request_timeout_in_seconds": 90,
         "max_retries": 0
       },
       "custom_provider_config": {
@@ -100,7 +100,7 @@
       ],
       "network_config": {
         "base_url": "https://developer.amd.com.cn/radeon",
-        "default_request_timeout_in_seconds": 180,
+        "default_request_timeout_in_seconds": 120,
         "max_retries": 0
       },
       "custom_provider_config": {
@@ -127,8 +127,30 @@
         }
       ],
       "network_config": {
-        "default_request_timeout_in_seconds": 180,
+        "default_request_timeout_in_seconds": 90,
         "max_retries": 1
+      }
+    },
+    "kilo": {
+      "keys": [
+        {
+          "name": "kilo-key",
+          "value": "env.KILO_CODE_API_KEY",
+          "models": ["kilo-auto/free", "anthropic/claude-sonnet-5"],
+          "weight": 1.0
+        }
+      ],
+      "network_config": {
+        "base_url": "https://ai-gateway.kilo.ai/api",
+        "default_request_timeout_in_seconds": 120,
+        "max_retries": 0
+      },
+      "custom_provider_config": {
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        }
       }
     }
   },
@@ -184,6 +206,11 @@
       {
         "id": "rl-gemini",
         "request_max_limit": 120,
+        "request_reset_duration": "1m"
+      },
+      {
+        "id": "rl-kilo",
+        "request_max_limit": 60,
         "request_reset_duration": "1m"
       }
     ],
@@ -259,30 +286,53 @@
         "pattern": "claude-fable-5-1",
         "request_types": ["chat_completion", "responses"],
         "pricing_patch": "{\"input_cost_per_token\":1e-07,\"output_cost_per_token\":3e-07}"
+      },
+      {
+        "id": "6e0f3c40-1111-4a01-9a01-000000000009",
+        "name": "kilo anthropic/claude-sonnet-5 (published rate 2/10 USD per M)",
+        "scope_kind": "global",
+        "match_type": "exact",
+        "pattern": "anthropic/claude-sonnet-5",
+        "request_types": ["chat_completion", "responses"],
+        "pricing_patch": "{\"input_cost_per_token\":2e-06,\"output_cost_per_token\":1e-05}"
+      },
+      {
+        "id": "6e0f3c40-1111-4a01-9a01-000000000010",
+        "name": "kilo kilo-auto/free (free tier, nominal rate)",
+        "scope_kind": "global",
+        "match_type": "exact",
+        "pattern": "kilo-auto/free",
+        "request_types": ["chat_completion", "responses"],
+        "pricing_patch": "{\"input_cost_per_token\":1e-09,\"output_cost_per_token\":1e-09}"
       }
     ],
     "routing_rules": [
       {
         "id": "claude-sonnet-5-rotation",
         "name": "Claude Sonnet 5 Rotation",
-        "description": "Rotate across agnes, sensenova, amd (simple-shuffle equivalent)",
+        "description": "Rotate across agnes, kilo (kilo-auto/free), sensenova, amd (simple-shuffle equivalent)",
         "enabled": true,
         "cel_expression": "model == 'claude-sonnet-5'",
         "targets": [
           {
             "provider": "agnes",
             "model": "agnes-2.5-flash",
-            "weight": 0.34
+            "weight": 0.3
+          },
+          {
+            "provider": "kilo",
+            "model": "kilo-auto/free",
+            "weight": 0.3
           },
           {
             "provider": "sensenova",
             "model": "sensenova-6.8-flash-lite",
-            "weight": 0.33
+            "weight": 0.2
           },
           {
             "provider": "amd",
             "model": "Qwen3.8-27B",
-            "weight": 0.33
+            "weight": 0.2
           }
         ],
         "fallbacks": [
@@ -399,6 +449,13 @@
               "gemini-3.1-flash-lite"
             ],
             "rate_limit_id": "rl-gemini",
+            "key_ids": ["*"]
+          },
+          {
+            "id": 6,
+            "provider": "kilo",
+            "allowed_models": ["kilo-auto/free", "anthropic/claude-sonnet-5"],
+            "rate_limit_id": "rl-kilo",
             "key_ids": ["*"]
           }
         ]
