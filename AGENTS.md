@@ -37,13 +37,22 @@ Mirrors `litellm-proxy/litellm/config.yaml` — same upstreams, same models, sam
 **Gotchas:**
 
 - Config is mounted read-only (`:ro`). Edit then `docker compose down && up -d` (not restart).
-- **Port conflict:** Bifrost and LiteLLM both bind host port `4000`. Only one gateway can run at a time — stop the other before starting this one.
+- **Port conflict:** Bifrost and LiteLLM both bind host port `4000`. Only one gateway can run at a time — stop the other before starting this one. **Bifrost is currently the active gateway; LiteLLM is stopped.**
 - Custom provider base_urls omit `/v1` (Bifrost appends it): `https://integrate.api.nvidia.com`, `https://apihub.agnes-ai.com`, `https://token.sensenova.ai`, `https://developer.amd.com.cn/radeon`.
 - NVIDIA model names are sent as-is — they must match the exact NVIDIA API model ID (`nvidia/nemotron-3.5-super-vl-120b-a12b`). Short names like `nemotron-3.5-super-vl` will be rejected.
 - `gemini` is a native Bifrost provider (not an OpenAI-compatible custom one); no `base_url` is set, so it uses Google's default endpoint.
 - Redis must be healthy before Bifrost starts — crashes immediately if Redis isn't ready.
 - Semantic caching: exact-match only, opt-in via `x-bf-cache-key` header.
 - Health check is TCP socket (`nc -z`) — no quota burn.
+
+### Authentication (required for governance + rate limits)
+
+Bifrost validates the `Authorization: Bearer` header against virtual keys. Requests **without** a token bypass governance entirely — which also means the virtual key rate limits below are **not enforced**.
+
+- The virtual key value is pinned in `config.json` as `env.BIFROST_VIRTUAL_KEY` (defined in `.env`). Without this, Bifrost regenerates the value on every start and the client token stops matching.
+- `ANTHROPIC_AUTH_TOKEN` (in `~/.zprofile`) must equal `BIFROST_VIRTUAL_KEY` from `.env`.
+- Each provider config carries `"key_ids": ["*"]`. Without it, governance resolves an empty key set for the provider config and every authenticated request fails with `no keys found for provider: <name> and model: <model>`.
+- Rate limits live in `governance.rate_limits` and are referenced by `rate_limit_id`. An inline `rate_limit` object inside `provider_configs` is silently dropped (collapses into one empty-id limit that is attached to nothing).
 
 ### Resilience & Fallbacks
 
@@ -61,29 +70,36 @@ Bifrost provides two layers of fault tolerance:
 }
 ```
 
-### Claude Code Wiring — `~/.zprofile`
+### Claude Code Wiring — `~/.zprofile` + `~/.claude/settings.json`
 
-Claude Code currently points at **LiteLLM** (aliases, not Bifrost provider/model strings):
+Claude Code is routed to **Bifrost** (active gateway on `:4000`):
 
-| Variable                         | Value                                             |
-| -------------------------------- | ------------------------------------------------- |
-| `ANTHROPIC_BASE_URL`             | `http://localhost:4000` (`.claude/settings.json`) |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL`   | `claude-opus-5-5`                                 |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | `claude-sonnet-5`                                 |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL`  | `claude-haiku-5-5`                                |
-| `ANTHROPIC_DEFAULT_FABLE_MODEL`  | `claude-fable-5-1`                                |
-| `CLAUDE_CODE_SUBAGENT_MODEL`     | `claude-haiku-5-5`                                |
+| Setting                                          | Value                                           |
+| ------------------------------------------------ | ----------------------------------------------- |
+| `ANTHROPIC_BASE_URL` (`~/.claude/settings.json`) | `http://localhost:4000/anthropic`               |
+| `ANTHROPIC_AUTH_TOKEN` (`~/.zprofile`)           | must equal `BIFROST_VIRTUAL_KEY` in `.env`      |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL`                   | `nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b` |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL`                 | `agnes/agnes-2.5-flash`                         |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL`                  | `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`  |
+| `ANTHROPIC_DEFAULT_FABLE_MODEL`                  | `amd/Qwen3.8-Flash-Next`                        |
+| `CLAUDE_CODE_SUBAGENT_MODEL`                     | `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`  |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW`                | `200000`                                        |
 
-To serve Claude Code from Bifrost instead, stop LiteLLM (`docker compose down` in `litellm-proxy/`), start Bifrost, and use the Bifrost-native model names:
+`/anthropic` is required: Bifrost's Anthropic drop-in lives at `http://localhost:4000/anthropic/v1/messages`.
+
+**Known limitations:**
+
+- `POST /anthropic/v1/messages/count_tokens` is not supported for the custom (OpenAI-compatible) providers — it returns `400 count_tokens is not supported by <provider> provider`. Claude Code tolerates this and continues.
+- Claude Code does not recognize gateway model IDs, so it assumes a 200k context window and prints `[claude-code:unrecognized_model]`. `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` makes that explicit.
+
+### Switching back to LiteLLM
 
 ```bash
-export ANTHROPIC_BASE_URL=http://localhost:4000/anthropic
-export ANTHROPIC_DEFAULT_OPUS_MODEL=nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b
-export ANTHROPIC_DEFAULT_SONNET_MODEL=agnes/agnes-2.5-flash
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
-export ANTHROPIC_DEFAULT_FABLE_MODEL=amd/Qwen3.8-Flash-Next
-export CLAUDE_CODE_SUBAGENT_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
+cd /home/zulu/bifrost-proxy && docker compose down
+cd /home/zulu/litellm-proxy && docker compose up -d
 ```
+
+Then restore the LiteLLM aliases in `~/.zprofile` (`claude-opus-5-5`, `claude-sonnet-5`, `claude-haiku-5-5`, `claude-fable-5-1`), restore `ANTHROPIC_AUTH_TOKEN` to the LiteLLM master key, and set `ANTHROPIC_BASE_URL` back to `http://localhost:4000` in `~/.claude/settings.json`.
 
 ---
 

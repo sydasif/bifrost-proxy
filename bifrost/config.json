@@ -195,6 +195,7 @@
             {
                 "id": "vk-default",
                 "name": "default",
+                "value": "env.BIFROST_VIRTUAL_KEY",
                 "is_active": true,
                 "provider_configs": [
                     {
@@ -204,7 +205,10 @@
                             "nvidia/nemotron-3.5-super-vl-120b-a12b",
                             "nvidia/nemotron-3.5-lightning-30b-a3b"
                         ],
-                        "rate_limit_id": "rl-nvidia"
+                        "rate_limit_id": "rl-nvidia",
+                        "key_ids": [
+                            "*"
+                        ]
                     },
                     {
                         "id": 2,
@@ -212,7 +216,10 @@
                         "allowed_models": [
                             "agnes-2.5-flash"
                         ],
-                        "rate_limit_id": "rl-agnes"
+                        "rate_limit_id": "rl-agnes",
+                        "key_ids": [
+                            "*"
+                        ]
                     },
                     {
                         "id": 3,
@@ -220,7 +227,10 @@
                         "allowed_models": [
                             "sensenova-6.8-flash-lite"
                         ],
-                        "rate_limit_id": "rl-sensenova"
+                        "rate_limit_id": "rl-sensenova",
+                        "key_ids": [
+                            "*"
+                        ]
                     },
                     {
                         "id": 4,
@@ -229,7 +239,10 @@
                             "Qwen3.8-27B",
                             "Qwen3.8-Flash-Next"
                         ],
-                        "rate_limit_id": "rl-amd"
+                        "rate_limit_id": "rl-amd",
+                        "key_ids": [
+                            "*"
+                        ]
                     },
                     {
                         "id": 5,
@@ -238,7 +251,10 @@
                             "gemini-3.5-flash-lite",
                             "gemini-3.1-flash-lite"
                         ],
-                        "rate_limit_id": "rl-gemini"
+                        "rate_limit_id": "rl-gemini",
+                        "key_ids": [
+                            "*"
+                        ]
                     }
                 ]
             }

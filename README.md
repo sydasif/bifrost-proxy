@@ -54,7 +54,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 ```
 
-Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `AGNES_API_KEY`, `SENSENOVA_API_KEY`, `AMD_API_KEY`, `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`.
+Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `AGNES_API_KEY`, `SENSENOVA_API_KEY`, `AMD_API_KEY`, `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, plus `BIFROST_VIRTUAL_KEY` (the virtual key Claude Code authenticates with).
 
 ### 2. Deploy
 
@@ -65,7 +65,7 @@ docker compose up -d
 Proxy is now running at `http://localhost:4000`.
 
 > **Port conflict:** the sibling `litellm-proxy/` gateway binds the same host port `4000`. Stop one before starting the other:
-> `docker compose down` in the other directory.
+> `docker compose down` in the other directory. Bifrost is the active gateway right now; LiteLLM is stopped.
 
 ### 3. Verify
 
@@ -93,18 +93,21 @@ curl http://localhost:4000/v1/models
 
 ## Using with Claude Code
 
-Claude Code is currently wired to the **LiteLLM** gateway via `~/.zprofile` (aliases such as `claude-opus-5-5`). To serve it from Bifrost instead, stop LiteLLM, start Bifrost, and point Claude Code at Bifrost's provider/model names:
+Claude Code is routed to Bifrost through `~/.claude/settings.json` (`ANTHROPIC_BASE_URL=http://localhost:4000/anthropic`) and `~/.zprofile`:
 
 ```bash
-export ANTHROPIC_BASE_URL=http://localhost:4000/anthropic
+export ANTHROPIC_AUTH_TOKEN=<same value as BIFROST_VIRTUAL_KEY in .env>
 export ANTHROPIC_DEFAULT_OPUS_MODEL=nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b
 export ANTHROPIC_DEFAULT_SONNET_MODEL=agnes/agnes-2.5-flash
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
 export ANTHROPIC_DEFAULT_FABLE_MODEL=amd/Qwen3.8-Flash-Next
 export CLAUDE_CODE_SUBAGENT_MODEL=nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
+export CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000
 ```
 
 After editing, `source ~/.zprofile` or open a new shell before running `claude`.
+
+Authentication matters here: without `ANTHROPIC_AUTH_TOKEN` matching the virtual key, requests bypass governance and the configured rate limits are not enforced.
 
 ---
 
