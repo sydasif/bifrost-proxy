@@ -54,7 +54,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 ```
 
-Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `AGNES_API_KEY`, `SENSENOVA_API_KEY`, `AMD_API_KEY`, `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, plus `BIFROST_VIRTUAL_KEY` (the virtual key Claude Code authenticates with).
+Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `AGNES_API_KEY`, `SENSENOVA_API_KEY`, `AMD_API_KEY`, `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, plus `BIFROST_VIRTUAL_KEY` (the virtual key Claude Code authenticates with) and `BIFROST_ADMIN_USERNAME` / `BIFROST_ADMIN_PASSWORD` (dashboard login). `BIFROST_SETUP_TOKEN` bootstraps the first admin if no credentials are declared.
 
 ### 2. Deploy
 
@@ -62,7 +62,9 @@ Required keys: `NVIDIA_API_KEY_1`, `NVIDIA_API_KEY_2`, `AGNES_API_KEY`, `SENSENO
 docker compose up -d
 ```
 
-Proxy is now running at `http://localhost:4000`.
+Proxy is now running at `http://localhost:4000`; the dashboard is at the same URL (log in with the admin credentials from `.env`).
+
+> **Never run `docker compose down -v`.** It deletes the named volumes and wipes dashboard history. `docker compose down` keeps data.
 
 > **Port conflict:** the sibling `litellm-proxy/` gateway binds the same host port `4000`. Stop one before starting the other:
 > `docker compose down` in the other directory. Bifrost is the active gateway right now; LiteLLM is stopped.
@@ -109,7 +111,13 @@ export CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000
 
 After editing, `source ~/.zprofile` or open a new shell before running `claude`.
 
-Authentication matters here: without `ANTHROPIC_AUTH_TOKEN` matching the virtual key, requests bypass governance and the configured rate limits are not enforced.
+Authentication is enforced on inference: requests must carry the virtual key in `Authorization: Bearer`, otherwise Bifrost returns `401`. The dashboard has its own password login on top of that.
+
+### Data Persistence
+
+Dashboard history, providers, routing rules, and governance state live in the named volume `bifrost-proxy_bifrost_data` mounted at `/app/data` (`config.db`, `logs.db`, `logs/`). They survive restarts and image upgrades. `docker compose down` keeps the volume; `docker compose down -v` deletes it.
+
+The admin account is declared in `bifrost/config.json` (`governance.auth_config`, env refs to `.env`) rather than created through the UI — `config.json` is mounted read-only, so UI-created accounts are not persisted.
 
 ---
 

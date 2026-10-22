@@ -1,7 +1,9 @@
 {
   "$schema": "https://www.getbifrost.ai/schema",
+  "setup_token": "env.BIFROST_SETUP_TOKEN",
   "client": {
     "enable_logging": true,
+    "enforce_auth_on_inference": true,
     "compat": {
       "should_drop_params": true,
       "should_convert_params": true
@@ -151,6 +153,11 @@
     }
   ],
   "governance": {
+    "auth_config": {
+      "is_enabled": true,
+      "admin_username": "env.BIFROST_ADMIN_USERNAME",
+      "admin_password": "env.BIFROST_ADMIN_PASSWORD"
+    },
     "rate_limits": [
       {
         "id": "rl-nvidia",

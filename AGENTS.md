@@ -9,14 +9,35 @@
 
 ```bash
 docker compose up -d                # Start (detached)
-docker compose down                  # Stop
+docker compose down                  # Stop (keeps data)
 docker compose logs -f              # Tail logs
-docker compose restart               # Restart services
 curl http://localhost:4000/         # Health / models check
 docker compose pull && docker compose up -d  # Update image + restart
 ```
 
 **Images:** `maximhq/bifrost:v2.3.2`, `redis/redis-stack-server:7.4.0-v8`
+**Dashboard:** `http://localhost:4000` (login = `BIFROST_ADMIN_USERNAME` / `BIFROST_ADMIN_PASSWORD` from `.env`)
+
+> **Never run `docker compose down -v`.** It deletes the named volumes and wipes dashboard history, admin config, and the Redis cache. `down` (no `-v`) is safe.
+
+---
+
+## Data & Persistence
+
+`/app/data` is the named volume `bifrost-proxy_bifrost_data` (not the container layer, not an anonymous volume). It holds:
+
+| File        | Contents                                                            |
+| :---------- | :------------------------------------------------------------------ |
+| `config.db` | providers, virtual keys, routing rules, governance, client settings |
+| `logs.db`   | dashboard request history (LLM logs, MCP logs, async jobs)          |
+| `logs/`     | rotated/archived log files                                          |
+
+- Data survives `docker compose down && up -d` and image upgrades.
+- `bifrost/config.json` is a read-only bind **inside** the volume mount — it overlays `/app/data/config.json` and is the declarative source of truth for providers/routing/auth.
+- If the volume is ever lost: `docker compose up` recreates it empty (fresh DB, empty dashboard), then `config.json` re-seeds providers/routing on boot.
+- Backup: `docker run --rm -v bifrost-proxy_bifrost_data:/src:ro -v "$PWD":/out alpine tar czf /out/bifrost-data-$(date +%F).tgz -C /src .`
+
+**Why this exists:** the earlier compose file had no mount for `/app/data`. Docker created an anonymous volume per container, so every `down`/`up` silently started from a fresh DB — that is what erased the dashboard history.
 
 ---
 
@@ -47,14 +68,24 @@ Mirrors `litellm-proxy/litellm/config.yaml` — same upstreams, same models, sam
 - Semantic caching: exact-match only, opt-in via `x-bf-cache-key` header.
 - Health check is TCP socket (`nc -z`) — no quota burn.
 
-### Authentication (required for governance + rate limits)
+### Authentication (dashboard + inference)
 
-Bifrost validates the `Authorization: Bearer` header against virtual keys. Requests **without** a token bypass governance entirely — which also means the virtual key rate limits below are **not enforced**.
+Two independent layers, both configured declaratively in `config.json`:
 
+| Layer              | Setting                                   | Effect                                                        |
+| :----------------- | :---------------------------------------- | :------------------------------------------------------------ |
+| Dashboard / `/api` | `governance.auth_config.is_enabled: true` | Username+password login; `/api/*` requires a session          |
+| Inference          | `client.enforce_auth_on_inference: true`  | `/v1/*` and `/anthropic/*` require a credential (401 without) |
+
+- The admin account is declared as `admin_username: env.BIFROST_ADMIN_USERNAME` / `admin_password: env.BIFROST_ADMIN_PASSWORD`. **Do not create it through the UI** — `config.json` is mounted `:ro`, so a UI-created account lives only in memory and disappears on the next restart. Declaring it in config makes it persist.
+- `setup_token` (`env.BIFROST_SETUP_TOKEN`) is the bootstrap fallback: `POST /api/session/setup` with header `X-Bifrost-Setup-Token` creates the first admin when config declares none.
+- The virtual key is still accepted for inference as `Authorization: Bearer <VK>` even with dashboard auth on. Claude Code only sends that header, so this is what keeps it working.
 - The virtual key value is pinned in `config.json` as `env.BIFROST_VIRTUAL_KEY` (defined in `.env`). Without this, Bifrost regenerates the value on every start and the client token stops matching.
 - `ANTHROPIC_AUTH_TOKEN` (in `~/.zprofile`) must equal `BIFROST_VIRTUAL_KEY` from `.env`.
 - Each provider config carries `"key_ids": ["*"]`. Without it, governance resolves an empty key set for the provider config and every authenticated request fails with `no keys found for provider: <name> and model: <model>`.
 - Rate limits live in `governance.rate_limits` and are referenced by `rate_limit_id`. An inline `rate_limit` object inside `provider_configs` is silently dropped (collapses into one empty-id limit that is attached to nothing).
+
+Login endpoint: `POST /api/session/login` with `{"username": "...", "password": "..."}` (sets a session cookie). Sessions live in the DB, so they survive container restarts.
 
 ### Resilience & Fallbacks
 
@@ -108,13 +139,15 @@ The aliases in `~/.zprofile` are now identical to LiteLLM. Only restore `ANTHROP
 
 ## Failure Handling
 
-| Symptom                   | Fix                                                                    |
-| ------------------------- | ---------------------------------------------------------------------- |
-| `address already in use`  | `docker ps` — LiteLLM or a leftover container on port 4000             |
-| `401` / `Invalid API key` | Verify the required keys are set in `.env`                             |
-| Service won't start       | `docker compose logs -f` — check startup logs                          |
-| `model not found`         | Update model names in the active config file                           |
-| Config not applied        | `docker compose down && up -d` (not restart) — config loads at startup |
+| Symptom                        | Fix                                                                                                                                                                    |
+| :----------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `address already in use`       | `docker ps` — LiteLLM or a leftover container on port 4000                                                                                                             |
+| `401` / `Invalid API key`      | Verify the required keys are set in `.env`; for inference, send `Authorization: Bearer <VK>`                                                                           |
+| Service won't start            | `docker compose logs -f` — check startup logs                                                                                                                          |
+| `model not found`              | Update model names in the active config file                                                                                                                           |
+| Config not applied             | `docker compose down && up -d` (not restart) — config loads at startup                                                                                                 |
+| Dashboard asks for setup again | `governance.auth_config` missing from `config.json`, or admin was created only via the UI (not persisted)                                                              |
+| Dashboard history empty        | Volume not mounted — check `docker inspect bifrost --format '{{range .Mounts}}{{.Name}} {{.Destination}}{{"\n"}}{{end}}'` shows `bifrost-proxy_bifrost_data /app/data` |
 
 ---
 

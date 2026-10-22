@@ -21,6 +21,7 @@ services:
     ports:
       - "4000:8080"
     volumes:
+      - bifrost_data:/app/data
       - ./bifrost/config.json:/app/data/config.json:ro
     env_file:
       - ./.env
@@ -40,3 +41,4 @@ services:
 
 volumes:
   redis_data:
+  bifrost_data:
