@@ -14,7 +14,7 @@ Provider and model configuration is kept in sync with the sibling `litellm-proxy
 ## Features
 
 - **Single proxy**: Bifrost (Go, ~3ms overhead measured, Redis exact-match response caching)
-- **Multi-provider routing**: NVIDIA NIM, Agnes, Sensenova, AMD Radeon, Gemini through a single endpoint
+- **Multi-provider routing**: NVIDIA NIM, Agnes, Sensenova, AMD Radeon, Gemini, Kilo Code Gateway through a single endpoint
 - **Load balancing**: weighted rotation for the Claude Code aliases; NVIDIA and Gemini each have 2 API keys with per-key retry rotation
 - **Self-healing**: broken/throttled upstreams fall back to Gemini transparently
 - **Disposable cache**: Redis runs with persistence off — nothing to fsync, nothing to corrupt
@@ -91,13 +91,16 @@ The suite exits non-zero on failure, so it works as a pre-change gate and after 
 
 | Provider  | Timeout | Models                                                                            | Keys                    |
 | :-------- | :------ | :-------------------------------------------------------------------------------- | :---------------------- |
-| nvidia    | 180s    | `nvidia/nemotron-3.5-super-vl-120b-a12b`, `nvidia/nemotron-3.5-lightning-30b-a3b` | 2 keys, weight 1.0 each |
-| agnes     | 180s    | `agnes-2.5-flash`                                                                 | 1 key, weight 1.0       |
-| sensenova | 180s    | `sensenova-6.8-flash-lite`                                                        | 1 key, weight 1.0       |
-| amd       | 180s    | `Qwen3.8-27B`, `Qwen3.8-Flash-Next`                                               | 1 key, weight 1.0       |
-| gemini    | 180s    | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`                                  | 2 keys, weight 1.0 each |
+| nvidia    | 90s     | `nvidia/nemotron-3.5-super-vl-120b-a12b`, `nvidia/nemotron-3.5-lightning-30b-a3b` | 2 keys, weight 1.0 each |
+| agnes     | 90s     | `agnes-2.5-flash`                                                                 | 1 key, weight 1.0       |
+| sensenova | 90s     | `sensenova-6.8-flash-lite`                                                        | 1 key, weight 1.0       |
+| amd       | 120s    | `Qwen3.8-27B`, `Qwen3.8-Flash-Next`                                               | 1 key, weight 1.0       |
+| gemini    | 90s     | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`                                  | 2 keys, weight 1.0 each |
+| kilo      | 120s    | `kilo-auto/free` (live), `anthropic/claude-sonnet-5` (needs credits)              | 1 key, weight 1.0       |
 
-**Request format:** `<provider>/<model>` (e.g. `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`, `agnes/agnes-2.5-flash`, `sensenova/sensenova-6.8-flash-lite`, `amd/Qwen3.8-Flash-Next`, `gemini/gemini-3.5-flash-lite`). Claude Code uses aliases rewritten by `governance.routing_rules` (sonnet rotates across agnes/sensenova/amd; all aliases have gemini fallbacks).
+Timeouts are per-provider and derived from measured p95 latency (≈2× p95, rounded to 30s, floor 90s) rather than one uniform value — a stalled upstream now fails over in 90–120s instead of 180s. See `AGENTS.md` for the latency table.
+
+**Request format:** `<provider>/<model>` (e.g. `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`, `agnes/agnes-2.5-flash`, `sensenova/sensenova-6.8-flash-lite`, `amd/Qwen3.8-Flash-Next`, `gemini/gemini-3.5-flash-lite`, `kilo/kilo-auto/free`). Claude Code uses aliases rewritten by `governance.routing_rules` (sonnet rotates across agnes/kilo/sensenova/amd; all aliases have gemini fallbacks).
 
 **Images:** `maximhq/bifrost:v2.3.2`, `redis/redis-stack-server:7.4.0-v8`.
 

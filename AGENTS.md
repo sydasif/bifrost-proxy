@@ -54,13 +54,27 @@ Mirrors `litellm-proxy/litellm/config.yaml` — same upstreams, same models, sam
 
 | Provider  | Timeout | Models                                                                            | Keys                    |
 | :-------- | :------ | :-------------------------------------------------------------------------------- | :---------------------- |
-| nvidia    | 180s    | `nvidia/nemotron-3.5-super-vl-120b-a12b`, `nvidia/nemotron-3.5-lightning-30b-a3b` | 2 keys, weight 1.0 each |
-| agnes     | 180s    | `agnes-2.5-flash`                                                                 | 1 key, weight 1.0       |
-| sensenova | 180s    | `sensenova-6.8-flash-lite`                                                        | 1 key, weight 1.0       |
-| amd       | 180s    | `Qwen3.8-27B`, `Qwen3.8-Flash-Next`                                               | 1 key, weight 1.0       |
-| gemini    | 180s    | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`                                  | 2 keys, weight 1.0 each |
+| nvidia    | 90s     | `nvidia/nemotron-3.5-super-vl-120b-a12b`, `nvidia/nemotron-3.5-lightning-30b-a3b` | 2 keys, weight 1.0 each |
+| agnes     | 90s     | `agnes-2.5-flash`                                                                 | 1 key, weight 1.0       |
+| sensenova | 90s     | `sensenova-6.8-flash-lite`                                                        | 1 key, weight 1.0       |
+| amd       | 120s    | `Qwen3.8-27B`, `Qwen3.8-Flash-Next`                                               | 1 key, weight 1.0       |
+| gemini    | 90s     | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`                                  | 2 keys, weight 1.0 each |
+| kilo      | 120s    | `kilo-auto/free` (live), `anthropic/claude-sonnet-5` (needs credits)              | 1 key, weight 1.0       |
 
-**Request format:** `<provider>/<model>` (e.g. `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`, `agnes/agnes-2.5-flash`, `sensenova/sensenova-6.8-flash-lite`, `amd/Qwen3.8-Flash-Next`, `gemini/gemini-3.5-flash-lite`).
+**Timeouts are measured, not uniform.** Each `network_config.default_request_timeout_in_seconds` is set to roughly **2× the observed p95**, rounded to 30s, floor 90s. Latency from real traffic in `logs.db` (successful requests only):
+
+| Provider | p50 | p95 | max | Timeout |
+| :--- | ---: | ---: | ---: | ---: |
+| nvidia | 0.5–0.8s | 0.9–1.3s | 3.5s | 90s |
+| gemini | 1.2s | 4.1s | 21.9s | 90s |
+| agnes | 0.9s | 7.6s | 104s* | 90s |
+| kilo | 5.0s | 6.3s | 63.1s | 120s |
+| sensenova | 3.4s | 19.9s | 52.4s | 90s |
+| amd | 10.4–11.1s | 37.5–48.4s | 63.6s | 120s |
+
+\*agnes shows one 104s stall — a timeout is the desired outcome there: it fails over to gemini instead of blocking Claude Code. The timeout is a **total request** budget, so a very long generation can still exceed it; because routing has gemini fallbacks, that costs one retry rather than an error.
+
+**Request format:** `<provider>/<model>` (e.g. `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b`, `agnes/agnes-2.5-flash`, `sensenova/sensenova-6.8-flash-lite`, `amd/Qwen3.8-Flash-Next`, `gemini/gemini-3.5-flash-lite`, `kilo/kilo-auto/free`).
 
 **Gotchas:**
 
@@ -69,6 +83,8 @@ Mirrors `litellm-proxy/litellm/config.yaml` — same upstreams, same models, sam
 - Custom provider base_urls omit `/v1` (Bifrost appends it): `https://integrate.api.nvidia.com`, `https://apihub.agnes-ai.com`, `https://token.sensenova.ai`, `https://developer.amd.com.cn/radeon`.
 - NVIDIA model names are sent as-is — they must match the exact NVIDIA API model ID (`nvidia/nemotron-3.5-super-vl-120b-a12b`). Short names like `nemotron-3.5-super-vl` will be rejected.
 - `gemini` is a native Bifrost provider (not an OpenAI-compatible custom one); no `base_url` is set, so it uses Google's default endpoint.
+- `kilo` is an OpenAI-compatible custom provider: `base_url: https://ai-gateway.kilo.ai/api` (Bifrost appends `/v1`), key `env.KILO_CODE_API_KEY`. Kilo is an **aggregator**, so model IDs are namespaced (`kilo-auto/free`, `anthropic/claude-sonnet-5`) and the vendor shown in the log is whatever Kilo routed to (e.g. `stealth/glyph-cluster`). Discover models with `curl https://ai-gateway.kilo.ai/api/v1/models` (no auth needed).
+- **Kilo's paid models need a credit balance.** The key authenticates fine, but `anthropic/claude-sonnet-5` returns `402 Paid Model - Credits Required`, which surfaces as an upstream error and falls back to gemini. `kilo-auto/free` is the only target usable on the free tier; it works but is reasoning-heavy (~150–500 reasoning tokens per reply) and slow — measured **3.3–13s typical, with a 63s outlier**.
 - Redis is a **disposable cache**: persistence is disabled (`--appendonly no --save ""`), so there are no fsync/AOF-rewrite stalls and no disk growth. Restarting Redis loses cached responses only (10m TTL); Bifrost state is in `/app/data`.
 - Redis must be healthy before Bifrost starts (`depends_on: service_healthy`). If Redis dies **at runtime**, Bifrost stays up and keeps serving: the cache plugin degrades silently, adding ~3.5s of overhead per cache-eligible request, and `is_cache_connected` still reports `true`. Restarting Redis restores caching immediately.
 - Semantic caching runs in **direct (exact-hash) mode** (`dimension: 1`, no embedding provider). `default_cache_key: "claude-code"` makes every request cache-eligible, so hits no longer require the `x-bf-cache-key` header. `conversation_history_threshold: 50` means conversations longer than 50 messages bypass the cache entirely. Cache hits replay in ~2ms vs ~500ms upstream.
@@ -90,7 +106,7 @@ Two independent layers, both configured declaratively in `config.json`:
 - `ANTHROPIC_AUTH_TOKEN` (in `~/.zprofile`) must equal `BIFROST_VIRTUAL_KEY` from `.env`.
 - Each provider config carries `"key_ids": ["*"]`. Without it, governance resolves an empty key set for the provider config and every authenticated request fails with `no keys found for provider: <name> and model: <model>`.
 - Rate limits live in `governance.rate_limits` and are referenced by `rate_limit_id`. An inline `rate_limit` object inside `provider_configs` is silently dropped (collapses into one empty-id limit that is attached to nothing).
-- **A governance 429 is final — it does not fall back.** The limiter runs before routing, so a sonnet request routed to an exhausted provider returns `429 rate_limit_error` to the client even when the other two rotation targets are idle. Keep limits well above real usage (currently 60/min for agnes/sensenova/amd, 120/min for nvidia/gemini). Upstream 429s are different: those rotate keys and fall back, so they are self-healing.
+- **A governance 429 is final — it does not fall back.** The limiter runs before routing, so a sonnet request routed to an exhausted provider returns `429 rate_limit_error` to the client even when the other three rotation targets are idle. Keep limits well above real usage (currently 60/min for agnes/sensenova/amd, 120/min for nvidia/gemini). Upstream 429s are different: those rotate keys and fall back, so they are self-healing.
 
 Login endpoint: `POST /api/session/login` with `{"username": "...", "password": "..."}` (sets a session cookie). Sessions live in the DB, so they survive container restarts.
 
@@ -104,7 +120,7 @@ Bifrost provides three layers of fault tolerance:
 
 | Alias              | Targets (weights)                                                                                     | Fallbacks                                                      |
 | :----------------- | :---------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
-| `claude-sonnet-5`  | `agnes/agnes-2.5-flash` (0.34), `sensenova/sensenova-6.8-flash-lite` (0.33), `amd/Qwen3.8-27B` (0.33) | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
+| `claude-sonnet-5`  | `agnes/agnes-2.5-flash` (0.3), `kilo/kilo-auto/free` (0.3), `sensenova/sensenova-6.8-flash-lite` (0.2), `amd/Qwen3.8-27B` (0.2) | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
 | `claude-opus-5-5`  | `nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b` (1.0)                                                 | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
 | `claude-haiku-5-5` | `nvidia/nvidia/nemotron-3.5-lightning-30b-a3b` (1.0)                                                  | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
 | `claude-fable-5-1` | `amd/Qwen3.8-Flash-Next` (1.0)                                                                        | `gemini/gemini-3.5-flash-lite`, `gemini/gemini-3.1-flash-lite` |
@@ -131,8 +147,10 @@ Current estimates (USD per 1M tokens), applied as `cost = in × prompt_tokens + 
 | `sensenova-6.8-flash-lite` | 0.05 | 0.20 | lite class |
 | `claude-opus-5-5` | 0.40 | 1.20 | resolves to nemotron super |
 | `claude-haiku-5-5` | 0.10 | 0.30 | resolves to nemotron lightning |
-| `claude-sonnet-5` | 0.15 | 0.50 | blended across the 3-way rotation |
+| `claude-sonnet-5` | 0.15 | 0.50 | blended across the 4-way rotation |
 | `claude-fable-5-1` | 0.10 | 0.30 | resolves to Qwen Flash-Next |
+| `kilo-auto/free` | 1e-9 | 1e-9 | free tier → nominal ~$0.001 per 1M |
+| `anthropic/claude-sonnet-5` | 2.00 | 10.00 | Kilo's published Sonnet rate (only once credits exist) |
 
 The amd `Qwen3.8-*` models have no override — they use the catalog's own rates (≈$0.06–0.26/M blended observed). When the resolved model has a catalog entry, that price wins over the alias override, so a `claude-sonnet-5` request served by amd is billed at the Qwen rate rather than the blended alias rate.
 - **Anthropic `/v1/messages` is billed as the `responses` request type**, not `chat_completion`. `request_types` must include both, or Claude Code traffic is never priced while `/v1/chat/completions` works — which is exactly how this looked broken during setup.
