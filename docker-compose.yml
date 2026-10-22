@@ -6,7 +6,18 @@ services:
       - "6379"
     volumes:
       - redis_data:/data
-    command: redis-stack-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # Pure cache: no AOF/RDB persistence, so no fsync or rewrite stalls and no disk growth.
+    # Losing cached responses on restart is harmless (10m TTL); Bifrost state lives in /app/data.
+    command:
+      - redis-stack-server
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -14,6 +25,11 @@ services:
       retries: 2
       start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   bifrost:
     image: maximhq/bifrost:v2.3.2
@@ -38,6 +54,11 @@ services:
       retries: 2
       start_period: 15s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   redis_data:

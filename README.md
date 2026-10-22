@@ -13,9 +13,11 @@ Provider and model configuration is kept in sync with the sibling `litellm-proxy
 
 ## Features
 
-- **Single proxy**: Bifrost (Go, fast, Redis semantic caching)
+- **Single proxy**: Bifrost (Go, ~3ms overhead measured, Redis exact-match response caching)
 - **Multi-provider routing**: NVIDIA NIM, Agnes, Sensenova, AMD Radeon, Gemini through a single endpoint
-- **Load balancing**: NVIDIA and Gemini each have 2 API keys with per-key retry rotation
+- **Load balancing**: weighted rotation for the Claude Code aliases; NVIDIA and Gemini each have 2 API keys with per-key retry rotation
+- **Self-healing**: broken/throttled upstreams fall back to Gemini transparently
+- **Disposable cache**: Redis runs with persistence off — nothing to fsync, nothing to corrupt
 - **Docker Native**: Official images, compose file ready
 - **Secure**: Environment-based API key management
 
@@ -73,7 +75,12 @@ Proxy is now running at `http://localhost:4000`; the dashboard is at the same UR
 
 ```bash
 curl http://localhost:4000/v1/models
+./tests/edge-cases.sh --static   # config/env consistency, no network
+./tests/edge-cases.sh            # auth + validation edge cases
+./tests/edge-cases.sh --full     # + routing, streaming, cache, large/unicode payloads
 ```
+
+The suite exits non-zero on failure, so it works as a pre-change gate and after every `down && up -d`.
 
 ---
 
@@ -116,6 +123,8 @@ Authentication is enforced on inference: requests must carry the virtual key in 
 ### Data Persistence
 
 Dashboard history, providers, routing rules, and governance state live in the named volume `bifrost-proxy_bifrost_data` mounted at `/app/data` (`config.db`, `logs.db`, `logs/`). They survive restarts and image upgrades. `docker compose down` keeps the volume; `docker compose down -v` deletes it.
+
+Log history is retained for 30 days (`client.log_retention_days`). Prompt and response content is stored in `logs.db` unless you set `client.disable_content_logging: true` — worth doing if you do not want source code persisted on the host.
 
 The admin account is declared in `bifrost/config.json` (`governance.auth_config`, env refs to `.env`) rather than created through the UI — `config.json` is mounted read-only, so UI-created accounts are not persisted.
 

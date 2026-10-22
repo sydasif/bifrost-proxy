@@ -3,6 +3,7 @@
   "setup_token": "env.BIFROST_SETUP_TOKEN",
   "client": {
     "enable_logging": true,
+    "log_retention_days": 30,
     "enforce_auth_on_inference": true,
     "compat": {
       "should_drop_params": true,
@@ -56,7 +57,7 @@
       "network_config": {
         "base_url": "https://apihub.agnes-ai.com",
         "default_request_timeout_in_seconds": 180,
-        "max_retries": 1
+        "max_retries": 0
       },
       "custom_provider_config": {
         "base_provider_type": "openai",
@@ -78,7 +79,7 @@
       "network_config": {
         "base_url": "https://token.sensenova.ai",
         "default_request_timeout_in_seconds": 180,
-        "max_retries": 1
+        "max_retries": 0
       },
       "custom_provider_config": {
         "base_provider_type": "openai",
@@ -100,7 +101,7 @@
       "network_config": {
         "base_url": "https://developer.amd.com.cn/radeon",
         "default_request_timeout_in_seconds": 180,
-        "max_retries": 1
+        "max_retries": 0
       },
       "custom_provider_config": {
         "base_provider_type": "openai",
@@ -147,7 +148,8 @@
         "ttl": "10m",
         "cache_by_model": true,
         "cache_by_provider": true,
-        "conversation_history_threshold": 3,
+        "default_cache_key": "claude-code",
+        "conversation_history_threshold": 50,
         "vector_store_namespace": "BifrostCache"
       }
     }
@@ -161,27 +163,27 @@
     "rate_limits": [
       {
         "id": "rl-nvidia",
-        "request_max_limit": 30,
+        "request_max_limit": 120,
         "request_reset_duration": "1m"
       },
       {
         "id": "rl-agnes",
-        "request_max_limit": 10,
+        "request_max_limit": 60,
         "request_reset_duration": "1m"
       },
       {
         "id": "rl-sensenova",
-        "request_max_limit": 10,
+        "request_max_limit": 60,
         "request_reset_duration": "1m"
       },
       {
         "id": "rl-amd",
-        "request_max_limit": 10,
+        "request_max_limit": 60,
         "request_reset_duration": "1m"
       },
       {
         "id": "rl-gemini",
-        "request_max_limit": 30,
+        "request_max_limit": 120,
         "request_reset_duration": "1m"
       }
     ],
